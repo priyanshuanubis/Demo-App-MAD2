@@ -1,20 +1,83 @@
 # Placement Portal Application (PPA) - V2
 
-A full-stack placement portal built with **Flask + Vue + Bootstrap + SQLite + Redis + Celery**.
+A role-based campus placement platform built with the required stack:
+- **Flask** (API)
+- **VueJS** (UI via ESM modules)
+- **Bootstrap** (styling)
+- **SQLite** (database)
+- **Redis + Flask-Caching** (cache)
+- **Celery + Redis** (batch/scheduled jobs)
 
-## Features
-- Unified login for admin/company/student with role-based authorization.
-- Programmatic DB initialization + pre-seeded admin (`admin@ppa.local` / `admin123`).
-- Admin approvals for companies and drives, search, deactivation/blacklisting controls.
-- Company drive creation and application status updates.
-- Student eligibility-based drive listing, single-attempt apply, history tracking.
-- Redis-backed API caching with TTL and fallback to in-memory cache.
-- Celery jobs:
-  - Daily reminders for upcoming deadlines.
-  - Monthly activity report generation.
-  - User-triggered async CSV export for student history.
+## Project Structure (aligned with requested schema)
 
-## Run locally
+```text
+Demo-App-MAD2/
+├── backend/
+│   ├── app.py
+│   ├── config.py
+│   ├── extensions.py
+│   ├── requirements.txt
+│   ├── models/
+│   │   └── __init__.py
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── admin.py
+│   │   ├── company.py
+│   │   ├── student.py
+│   │   └── utils.py
+│   └── tasks/
+│       ├── __init__.py
+│       ├── celery_app.py
+│       └── jobs.py
+└── frontend/
+    ├── index.html
+    └── src/
+        ├── api.js
+        ├── main.js
+        └── components/
+            ├── LoginRegisterPanel.js
+            ├── AdminDashboard.js
+            ├── CompanyDashboard.js
+            └── StudentDashboard.js
+```
+
+## Implemented Functionalities
+
+### Auth & Roles
+- Admin login only (pre-seeded, no admin registration)
+- Student self-registration and login
+- Company self-registration and login
+- Role-based route protection with JWT
+
+### Admin
+- Dashboard statistics
+- Company approval/rejection/blacklist status updates
+- Drive approval/rejection/closure updates
+- Search students/companies/drives
+- View all students and applications
+- Activate/deactivate users
+
+### Company
+- Company dashboard with drive/applicant counts
+- Create placement drives (only if company is admin-approved)
+- View drives and applications
+- Update application status (shortlist/reject/select/interview)
+
+### Student
+- Student dashboard and profile edits
+- View approved + eligibility-filtered drives
+- Apply once per drive only
+- View application history
+- Export applications CSV
+
+### Jobs & Caching
+- Daily reminder job placeholder
+- Monthly HTML report generation placeholder
+- CSV export service
+- Redis cache with expiry
+
+## Local Run
 
 ```bash
 cd backend
@@ -24,14 +87,20 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Optional Redis/Celery:
+In another terminal for frontend:
+
 ```bash
-redis-server
-celery -A app.celery worker -B --loglevel=info
+cd frontend
+python -m http.server 8080
 ```
 
-Open `frontend/index.html` in browser (or serve using `python -m http.server 8080` from `frontend/`).
+Optional jobs:
 
-## Important default credentials
-- Admin email: `admin@ppa.local`
-- Admin password: `admin123`
+```bash
+cd backend
+celery -A tasks.celery_app.celery worker -B --loglevel=info
+```
+
+## Default Admin
+- Email: `admin@ppa.local`
+- Password: `admin123`
