@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import UniqueConstraint
+from werkzeug.security import generate_password_hash
 
 from extensions import db
 
@@ -89,7 +90,11 @@ def seed_admin_user():
     if existing:
         return existing
 
-    admin = User(email="admin@ppa.local", password="admin123", role=UserRole.ADMIN.value)
+    admin = User(
+        email="admin@ppa.local",
+        password=generate_password_hash("admin123"),
+        role=UserRole.ADMIN.value,
+    )
     db.session.add(admin)
     db.session.commit()
     return admin

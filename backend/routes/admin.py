@@ -51,6 +51,13 @@ def approve_company(_user, company_id):
         return jsonify({"message": "Company not found"}), 404
 
     company.approval_status = payload.get("status", company.approval_status)
+    if company.approval_status == "blacklisted":
+        owner = db.session.get(User, company.user_id)
+        if owner:
+            owner.active = False
+        drives = PlacementDrive.query.filter_by(company_id=company.id).all()
+        for drive in drives:
+            drive.status = "closed"
     db.session.commit()
     cache.clear()
     return jsonify({"message": "Company status updated"})

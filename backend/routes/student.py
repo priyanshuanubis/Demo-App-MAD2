@@ -1,10 +1,14 @@
+import io
+import os
 from datetime import date
 
+from celery.result import AsyncResult
 from flask import Blueprint, jsonify, request, send_file
 
 from extensions import cache, db
 from models import Application, CompanyProfile, PlacementDrive, StudentProfile, UserRole
 from routes.utils import role_required
+from tasks.celery_app import export_student_history
 from tasks.jobs import export_student_history_csv
 
 bp = Blueprint("student", __name__, url_prefix="/api/student")
@@ -135,6 +139,50 @@ def export_csv(current_user):
     csv_text = export_student_history_csv(current_user.id)
     return send_file(
         csv_text,
+        as_attachment=True,
+        download_name="application_history.csv",
+        mimetype="text/csv",
+    )
+
+
+@bp.post("/export/request")
+@role_required(UserRole.STUDENT.value)
+def request_export(current_user):
+    if os.getenv("CELERY_TASK_ALWAYS_EAGER", "1") == "1":
+        csv_text = export_student_history_csv(current_user.id)
+        task_id = f"local-{current_user.id}"
+        return jsonify({"task_id": task_id, "status": "SUCCESS", "download_ready": True, "csv": csv_text.getvalue().decode("utf-8")})
+
+    task = export_student_history.delay(current_user.id)
+    return jsonify({"task_id": task.id, "status": task.status, "download_ready": False})
+
+
+@bp.get("/export/status/<task_id>")
+@role_required(UserRole.STUDENT.value)
+def export_status(_current_user, task_id):
+    if task_id.startswith("local-"):
+        return jsonify({"task_id": task_id, "status": "SUCCESS", "download_ready": True})
+
+    task = AsyncResult(task_id, app=export_student_history.app)
+    payload = {"task_id": task.id, "status": task.status, "download_ready": task.successful()}
+    if task.successful():
+        payload["csv"] = task.result
+    return jsonify(payload)
+
+
+@bp.get("/export/download/<task_id>")
+@role_required(UserRole.STUDENT.value)
+def export_download(current_user, task_id):
+    if task_id.startswith("local-"):
+        csv_content = export_student_history_csv(current_user.id).getvalue().decode("utf-8")
+    else:
+        task = AsyncResult(task_id, app=export_student_history.app)
+        if not task.successful():
+            return jsonify({"message": "Export is not ready yet"}), 400
+        csv_content = task.result
+
+    return send_file(
+        io.BytesIO(csv_content.encode("utf-8")),
         as_attachment=True,
         download_name="application_history.csv",
         mimetype="text/csv",

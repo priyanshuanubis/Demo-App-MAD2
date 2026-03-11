@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
 from models import CompanyProfile, StudentProfile, User, UserRole
@@ -17,7 +18,11 @@ def register_student():
     if User.query.filter_by(email=data["email"]).first():
         return jsonify({"message": "Email already exists"}), 400
 
-    user = User(email=data["email"], password=data["password"], role=UserRole.STUDENT.value)
+    user = User(
+        email=data["email"],
+        password=generate_password_hash(data["password"]),
+        role=UserRole.STUDENT.value,
+    )
     db.session.add(user)
     db.session.flush()
     profile = StudentProfile(
@@ -40,7 +45,11 @@ def register_company():
     if User.query.filter_by(email=data["email"]).first():
         return jsonify({"message": "Email already exists"}), 400
 
-    user = User(email=data["email"], password=data["password"], role=UserRole.COMPANY.value)
+    user = User(
+        email=data["email"],
+        password=generate_password_hash(data["password"]),
+        role=UserRole.COMPANY.value,
+    )
     db.session.add(user)
     db.session.flush()
     profile = CompanyProfile(
@@ -58,8 +67,8 @@ def register_company():
 @bp.post("/login")
 def login():
     data = request.get_json(force=True)
-    user = User.query.filter_by(email=data.get("email"), password=data.get("password")).first()
-    if not user:
+    user = User.query.filter_by(email=data.get("email")).first()
+    if not user or not check_password_hash(user.password, data.get("password", "")):
         return jsonify({"message": "Invalid credentials"}), 401
     if not user.active:
         return jsonify({"message": "Account deactivated"}), 403

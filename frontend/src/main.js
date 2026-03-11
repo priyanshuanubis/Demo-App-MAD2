@@ -53,13 +53,28 @@ createApp({
     async applyDrive(id) { return this.run(async () => this.message = (await apiRequest(`/student/drives/${id}/apply`, { token: this.token, method: 'POST' })).message); },
     async exportCsv() {
       return this.run(async () => {
-        const response = await fetch('http://localhost:5000/api/student/export', { headers: { Authorization: `Bearer ${this.token}` } });
-        if (!response.ok) throw new Error('Export failed');
+        const requestTask = await apiRequest('/student/export/request', { token: this.token, method: 'POST' });
+        let taskData = requestTask;
+        if (!taskData.download_ready) {
+          this.message = 'Preparing CSV export in background...';
+          for (let i = 0; i < 8; i += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            taskData = await apiRequest(`/student/export/status/${requestTask.task_id}`, { token: this.token });
+            if (taskData.download_ready) break;
+          }
+        }
+
+        const downloadUrl = taskData.download_ready
+          ? `http://localhost:5000/api/student/export/download/${requestTask.task_id}`
+          : 'http://localhost:5000/api/student/export';
+
+        const response = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${this.token}` } });
+        if (!response.ok) throw new Error('Export not ready yet');
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = 'application_history.csv'; a.click();
         URL.revokeObjectURL(url);
-        this.message = 'CSV export downloaded';
+        this.message = 'CSV export is ready and downloaded';
       });
     },
     run(fn) { return fn().catch((e) => this.message = e.message || 'Operation failed'); },
