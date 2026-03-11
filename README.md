@@ -8,6 +8,8 @@ A role-based campus placement platform built with the required stack:
 - **Redis + Flask-Caching** (cache)
 - **Celery + Redis** (batch/scheduled jobs)
 
+> This repository contains deployable source files only. The SQLite DB file is generated programmatically at runtime.
+
 ## Project Structure (aligned with requested schema)
 
 ```text
@@ -104,3 +106,6 @@ celery -A tasks.celery_app.celery worker -B --loglevel=info
 ## Default Admin
 - Email: `admin@ppa.local`
 - Password: `admin123`
+
+## Testing
+- Follow `TEST_GUIDE.md` for step-by-step backend/frontend/API smoke tests.
